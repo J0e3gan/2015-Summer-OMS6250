@@ -22,7 +22,10 @@ class LearningSwitch(DynamicPolicy):
 
         # TODO: Initialize your forwarding tables. Create this however you wish.
         # Couple of suggestions: Dictionary of dictionaries, Dictionary of 
-        # tuples. 
+        # tuples.
+        self.forwarding_table = {}  # empty dictionary to be a dict of dicts as routes are learned
+
+        open_log('learning-switch.log')
 
 
         # only use one flood instance - this is the default policy when there 
@@ -43,24 +46,49 @@ class LearningSwitch(DynamicPolicy):
         # TODO - You will need to implement this based on how your forwarding
         # table are set up. Us the functions in the first half of helpers.
         # Format should be to call write_forwarding_entry() for each entry in
-        # the forwarding table, then finish up with finish_printing(). 
+        # the forwarding table, then finish up with finish_printing().
+        for switch, switch_mappings in self.forwarding_table.iteritems():
+            for mac_address, port_number in switch_mappings.iteritems():
+                write_forwarding_entry(switch, port_number, str(mac_address))
+
+        next_entry()
+
+        import helpers
+        helpers.logfile.flush()
+
         pass
+
 
     def learn_route(self, pkt):
         """  This function adds new routes into the fowarding table. """
 
         # TODO - create a new entry in the fowarding table. Use the functions 
         # in the second half of helpers to simplify all your work.
-        
+        pkt_src_mac = get_src_mac(pkt)
+        #print('pkt_src_mac == ' + str(pkt_src_mac))  # FORNOW
+        if str(pkt_src_mac)[:-2] != '00:00:00:00:00:':  # only host-sent packets
+            return
+
+        pkt_dst_mac = get_dst_mac(pkt)
+        pkt_switch = get_switch(pkt)
+        pkt_inport = get_inport(pkt)
+        #pkt_outport = get_outport(pkt)
+        #print('pkt_dst_mac == ' + str(pkt_dst_mac))  # FORNOW
+        #print('pkt_switch == ' + str(pkt_switch))    # FORNOW
+        #print('pkt_inport == ' + str(pkt_inport))    # FORNOW
+        #print('pkt_outport == ' + str(pkt_outport))  # FORNOW
+        if not(pkt_switch in self.forwarding_table.keys()):
+            self.forwarding_table[pkt_switch] = {pkt_src_mac: pkt_inport}
+        elif not(pkt_src_mac in self.forwarding_table[pkt_switch].keys()):
+            self.forwarding_table[pkt_switch][pkt_src_mac] = pkt_inport
 
         # print out the switch tables:
         self.print_switch_tables()
 
         # Call build_policy to update the fowarding tables of the switches.
-        self.build_policy()
+        #self.build_policy()  # FORNOW
+
         pass
-
-
 
 
     def build_policy(self):
@@ -76,20 +104,33 @@ class LearningSwitch(DynamicPolicy):
         # TODO: Example code. You will need to edit this based on how you're 
         # storing your policies. You should only have to replace the details in
         # rule entries.
-        rule1 = 1, "00:00:00:00:00:01", 3
-        rule2 = 1, "00:00:00:00:00:02", 2
-        for rule in (rule1, rule2):
-            if new_policy == None:
-                # First entry, prime the pump
-                new_policy = (match(switch=int(rule[0]), dstmac=(rule[1])) >>
-                              fwd(rule[2]))
-            else:
-                new_policy += (match(switch=int(rule[0]), dstmac=(rule[1])) >>
-                               fwd(rule[2]))
-            if not_flood_pkts == None:
-                not_flood_pkts = (match(switch=int(rule[0]), dstmac=(rule[1])))
-            else:
-                not_flood_pkts |= (match(switch=int(rule[0]), dstmac=(rule[1])))
+        for switch, switch_mappings in self.forwarding_table.iteritems():
+            for mac_address, port_number in switch_mappings.iteritems():
+                if new_policy == None:
+                    # First entry, prime the pump
+                    new_policy = (match(switch=int(switch), dstmac=(mac_address)) >>
+                                  fwd(port_number))
+                else:
+                    new_policy += (match(switch=int(switch), dstmac=(mac_address)) >>
+                                   fwd(port_number))
+                if not_flood_pkts == None:
+                    not_flood_pkts = (match(switch=int(switch), dstmac=(mac_address)))
+                else:
+                    not_flood_pkts |= (match(switch=int(switch), dstmac=(mac_address)))
+        #rule1 = 1, "00:00:00:00:00:01", 3
+        #rule2 = 1, "00:00:00:00:00:02", 2
+        #for rule in (rule1, rule2):
+        #    if new_policy == None:
+        #        # First entry, prime the pump
+        #        new_policy = (match(switch=int(rule[0]), dstmac=(rule[1])) >>
+        #                      fwd(rule[2]))
+        #    else:
+        #        new_policy += (match(switch=int(rule[0]), dstmac=(rule[1])) >>
+        #                       fwd(rule[2]))
+        #    if not_flood_pkts == None:
+        #        not_flood_pkts = (match(switch=int(rule[0]), dstmac=(rule[1])))
+        #    else:
+        #        not_flood_pkts |= (match(switch=int(rule[0]), dstmac=(rule[1])))
                         
                 
 
@@ -102,7 +143,11 @@ class LearningSwitch(DynamicPolicy):
         
         # The following line can be uncommented to see your policy being
         # built up, say during a flood period. 
-        # print self.policy
+        # print self.policy  # FORNOW: Print the policy presently in place.
+
+
+    def __del__(self):
+        finish_log()
 
 
 def main():
