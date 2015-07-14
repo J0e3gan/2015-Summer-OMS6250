@@ -5,6 +5,7 @@
 from pyretic.lib.corelib import *
 from pyretic.lib.std import *
 from pyretic.lib.query import packets
+from pyretic.core.packet import IPV4, TCP_PROTO
 
 def make_firewall_policy(config):
     # TODO - This is where you need to write the functionality to create the
@@ -17,12 +18,15 @@ def make_firewall_policy(config):
     rules = []
     for entry in config:
         # TODO - build the individual rules
+        filtered_entry = dict(
+            (k, v if k != "srcport" and k != "dstport" else int(v)) for k, v in entry.iteritems() if v != '*')
+        rule = match(ethtype=IPV4, protocol=TCP_PROTO, **filtered_entry)
 
-        # examples: 
-        rule = match(dstport=entry['dstport'])
-        rule = match(srcmac=MAC(entry['srcmac']))
-        rule = match(srcip=entry['srcip'])
-        rule = match(dstmac=MAC(entry['dstmac']), srcport=entry['srcport'])
+        ## examples:
+        #rule = match(dstport=entry['dstport'])
+        #rule = match(srcmac=MAC(entry['srcmac']))
+        #rule = match(srcip=entry['srcip'])
+        #rule = match(dstmac=MAC(entry['dstmac']), srcport=entry['srcport'])
         rules.append(rule)
         pass
     
